@@ -12,19 +12,21 @@ from intraday.rewards import BalanceReward
 from intraday.env import SingleAgentEnv
 import numpy as np
 from stable_baselines3 import A2C, DQN, PPO
+from stable_baselines3.common.env_checker import check_env
 
 from run_helper import FlattenDictWrapper
+
+
 
 provider = RandomWalkProvider(step_limit=1000, volume_limit=20, date_from=date(2018, 5, 1), 
                               date_to=date(2024, 9, 30),
                               walking_threshold=0.49,
                               seed=math.floor(time.time()))
 processor = IntervalProcessor(method='volume', interval=5*60)
-#period = 1000
+
 period: tuple = (2, 10, 5)
+
 frames_ema_period = 20
-
-
 atr_name = f'ema_{frames_ema_period}_true_range'
 features_pipeline = [
     AbnormalTrades(), 
@@ -61,25 +63,20 @@ names = [
     f'ema_{frames_ema_period}_true_range'
 ]
 
-print(f"names:  {names}")
-
-
 counter = 0
 
-from stable_baselines3.common.env_checker import check_env
-from gym import spaces
-
-
-# # Example usage
-# env = gym.make('YourGymEnv')  # Replace with your actual environment
 wrapped_env = FlattenDictWrapper(env)
 check_env(wrapped_env)
 
-mode_train = True
-# mode_train = False
-total_timesteps = 50000
 
-model_type = DQN
+#we should train first. If we have already trained model, we can skip it
+mode_train = True 
+#mode_train = False
+
+#amount of steps (not days) used for training
+total_timesteps = 50000 
+
+model_type = DQN #any suitable from stable-baselines
 
 if mode_train:
     model = model_type('MlpPolicy', wrapped_env, verbose=0)
@@ -98,16 +95,19 @@ unwrapped_eval_env = SingleAgentEnv(
     initial_balance=100000,
     max_trades=20,
     warm_up_time=timedelta(hours=1),
-    # n_agents=1
 )
+
+
+#this env will be used for inference
 eval_env = FlattenDictWrapper(unwrapped_eval_env)
 
 balances = []
 net_profits = []
 rewards = []
 episodes = 50
-# obs = eval_env.reset()
-do_render = False #True
+
+#if true, will plot price and return graphs
+do_render = True #True
 
 for i in range(episodes):
     done = False
@@ -134,7 +134,7 @@ for i in range(episodes):
 
 print(f"Balance: non-None: {len(balances)}, mean {np.mean(balances)}, max {max(balances)}, min {min(balances)}")
 print(f"Net profit: non-None: {len(net_profits)}, mean {np.mean(net_profits)}, max {max(net_profits)}, min {min(net_profits)}")
-print(f"Reward: non-None: {len(rewards)}, mean {np.mean(rewards)}, max {max(rewards)}, min {min(rewards)}")
+# print(f"Reward: non-None: {len(rewards)}, mean {np.mean(rewards)}, max {max(rewards)}, min {min(rewards)}")
 
 
 wrapped_env.close()
